@@ -28,7 +28,53 @@ import numpy as np
 
 # # %%
 
-#%% Logistic regression example 1
+# #%% Logistic regression example 1
+
+# gendata1 = np.random.normal(size=(4,100)) + np.array([[1],[2],[2],[2]])
+# gendata2 = np.random.normal(size=(4,100)) + np.array([[-1],[-2],[2],[2]])
+# gendata3 = np.random.normal(size=(4,100)) + np.array([[1],[2],[-2],[-2]])
+# gendata4 = np.random.normal(size=(4,100)) + np.array([[1],[-2],[2],[-2]])
+# gendata = np.concatenate([gendata1,gendata2,gendata3,gendata4], axis=1)
+# gendata = gendata.T
+
+
+
+
+
+# # %%
+
+# response = [100*[1,0,0,0] + 100*[0,1,0,0] + 100*[0,0,1,0]+100*[0,0,0,1]]
+# response = np.array(response)
+# response = response.reshape((400,4))
+
+# # %%
+
+# l2 = ly.Layer(4,4,ly.softmax_act,ly.cross_entropy_cost)
+
+# # %%
+
+# l2.act_fun.fun(gendata)
+
+# # %%
+
+# cost_old = 0
+# cost = 0
+
+# while cost_old == 0 or np.abs(cost_old - cost)/cost_old > 10E-5:
+#     o1 = l2.output(gendata)
+#     cost_old = cost
+#     cost = l2.cost_eval(o1,response)
+#     l2.W -= 0.001*l2.w_grad()
+#     l2.b -= 0.001*l2.b_grad()
+#     print(l2.W)
+#     print(l2.b)
+#     print(cost)
+# # %%
+# np.argmax(o1, axis=1)
+
+
+
+# #%% Logistic regression example 2
 
 gendata1 = np.random.normal(size=(4,100)) + np.array([[1],[2],[2],[2]])
 gendata2 = np.random.normal(size=(4,100)) + np.array([[-1],[-2],[2],[2]])
@@ -38,36 +84,28 @@ gendata = np.concatenate([gendata1,gendata2,gendata3,gendata4], axis=1)
 gendata = gendata.T
 
 
-
-
-
 # %%
 
 response = [100*[1,0,0,0] + 100*[0,1,0,0] + 100*[0,0,1,0]+100*[0,0,0,1]]
 response = np.array(response)
 response = response.reshape((400,4))
 
+#%%
+
+net = ly.Network(4)
+first = ly.Layer(4,10,ly.leaky_relu)
+second = ly.Layer(10,4,ly.softmax_act,ly.cross_entropy_cost)
+net.layer_append(first)
+net.layer_append(second)
+
+#%%
+
+net.train(gendata,response)
+
+
+
+
 # %%
-
-l2 = ly.Layer(4,4,ly.softmax_act,ly.cross_entropy_cost)
-
-# %%
-
-l2.act_fun.fun(gendata)
+np.argmax(net.output(gendata), axis=1)
 
 # %%
-
-cost_old = 0
-cost = 0
-
-while cost_old == 0 or np.abs(cost_old - cost)/cost_old > 10E-5:
-    o1 = l2.output(gendata)
-    cost_old = cost
-    cost = l2.cost_eval(o1,response)
-    l2.W -= 0.001*l2.w_grad()
-    l2.b -= 0.001*l2.b_grad()
-    print(l2.W)
-    print(l2.b)
-    print(cost)
-# %%
-np.argmax(o1, axis=1)
