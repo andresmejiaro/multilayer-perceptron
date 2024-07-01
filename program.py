@@ -4,7 +4,6 @@ import layer as ly
 import numpy as np
 
 
-
 # # %% Linear regression example 1
 
 # data2 = np.random.normal(size=(100,2))
@@ -93,14 +92,14 @@ response = response.reshape((400,4))
 #%%
 
 net = ly.Network(4)
-first = ly.Layer(4,10,ly.leaky_relu)
+first = ly.Layer(4,10,ly.sigmoid_act)
 second = ly.Layer(10,4,ly.softmax_act,ly.cross_entropy_cost)
 net.layer_append(first)
 net.layer_append(second)
 
 #%%
 
-net.train(gendata,response)
+net.train(gendata,response,training_method="RMSProp",gamma = 0.9)
 
 
 

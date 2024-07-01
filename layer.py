@@ -2,7 +2,7 @@
 
 import numpy as np
 from tqdm import tqdm
-import time
+
 
 class Act_Fun:
     def __init__(self,fun,df=None):
@@ -41,6 +41,7 @@ class Layer:
         self.W = np.random.normal(size=(n_outputs, n_inputs))
         self.b = np.abs(np.random.normal(size=(n_outputs,)))       
         self.act_fun = act_fun
+        self.RMSProp_wt=0
 
 
     def output (self, input_data):
@@ -70,16 +71,27 @@ class Layer:
     def b_grad(self):
         return np.mean(self.delta_.T,axis=1)
     
-    def cost_eval(self, output, observed_data):
-        self.delta_ = self.cost_fun.df(output,observed_data)
+    def cost_eval(self, output, observed_data, validation = False):
+        if not validation:
+            self.delta_ = self.cost_fun.df(output,observed_data)
         return np.mean(self.cost_fun.fun(output,observed_data))
     
-    def layer_update(self):
-        self.W -= 0.001*self.w_grad()
-        self.b -= 0.001*self.b_grad()
-    
+    def layer_update(self, training_method, learning_rate, gamma = 0):
+        training_methods = {"GD": self.GD,"RMSProp":self.RMSProp}
+        if not training_method in training_methods.keys():
+            print("Training method unknown defaulting to gradient descent")
+            training_method = "GD"
+        training_methods[training_method](learning_rate, gamma)
 
     
+    def GD(self, learning_rate, gamma):
+        self.W -= learning_rate*self.w_grad()
+        self.b -= learning_rate*self.b_grad()
+
+    def RMSProp(self, learning_rate, gamma = 0.1):
+        self.RMSProp_wt = gamma*self.RMSProp_wt + (1-gamma)*(np.sum(self.w_grad()**2) + np.sum(self.b_grad()**2))
+        self.W -= learning_rate*self.w_grad()/np.sqrt(self.RMSProp_wt + 0.001)
+        self.b -= learning_rate*self.b_grad()/np.sqrt(self.RMSProp_wt + 0.001)
 
 
  
@@ -110,15 +122,15 @@ class Network:
         return intermediate
    
     
-    def cost_eval(self, input_data, observed_data):
-        return self.layers[-1].cost_eval(self.output(input_data),observed_data)
+    def cost_eval(self, input_data, observed_data, validation = False):
+        return self.layers[-1].cost_eval(self.output(input_data),observed_data, validation)
     
-    def train(self,input, observed):
+    def train(self,input, observed,training_method = "GD", learning_rate = 0.001, gamma = 0, val_input=None, val_observed =None):
         cost_old = 0
         cost = 0
         progress_bar = tqdm(total=self.max_epoch, desc="Training Progress")
         for i in range(self.max_epoch): 
-            if cost_old != 0 and np.abs(cost_old - cost)/cost_old < 10E-5:
+            if cost_old != 0 and np.abs(cost_old - cost)/cost_old < 10E-20:
                 break
             o1 = self.output(input)
             cost_old = cost
@@ -129,8 +141,13 @@ class Network:
                 delta_next = lay.delta(delta_next, W_next)
                 W_next = lay.W
             for lay in self.layers:
-                lay.layer_update()        
-            progress_bar.set_description(f"Cost: {cost:.4f}")
+                lay.layer_update(training_method, learning_rate, gamma)        
+            if val_input is None:
+                progress_bar.set_description(f"Cost: {cost:.4f}")
+            else:
+                o2 = self.output(val_input)
+                val_cost= self.layers[-1].cost_eval(o2,val_observed, validation = True)
+                progress_bar.set_description(f"Cost: {cost:.4f} Validation Cost: {val_cost:.4f} ")
             progress_bar.update(1)
             
         
