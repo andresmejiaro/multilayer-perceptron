@@ -125,7 +125,7 @@ class Network:
     def cost_eval(self, input_data, observed_data, validation = False):
         return self.layers[-1].cost_eval(self.output(input_data),observed_data, validation)
     
-    def train(self,input, observed,training_method = "GD", learning_rate = 0.001, gamma = 0, val_input=None, val_observed =None):
+    def train(self,input, observed,training_method = "GD", learning_rate = 0.001, gamma = 0, val_input=None, val_observed =None,batch_size = -1):
         cost_old = 0
         cost = 0
         progress_bar = tqdm(total=self.max_epoch, desc="Training Progress")
@@ -151,7 +151,7 @@ class Network:
             progress_bar.update(1)
             
         
-   
+ 
 
 
 # %%
