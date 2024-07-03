@@ -2,7 +2,11 @@
 
 import numpy as np
 from tqdm import tqdm
-
+import time
+import random
+import plotly.express as px
+import pandas as pd
+import copy
 
 class Act_Fun:
     def __init__(self,fun,df=None):
@@ -103,6 +107,8 @@ class Network:
     def __init__(self, input_size, max_epoch = 10000) -> None:
         self.max_epoch = max_epoch
         self.input_size =  input_size
+        self.cost_historic = []
+        self.cost_val_historic = []
         self.layers = []
         
 
@@ -125,31 +131,81 @@ class Network:
     def cost_eval(self, input_data, observed_data, validation = False):
         return self.layers[-1].cost_eval(self.output(input_data),observed_data, validation)
     
-    def train(self,input, observed,training_method = "GD", learning_rate = 0.001, gamma = 0, val_input=None, val_observed =None,batch_size = -1):
-        cost_old = 0
-        cost = 0
-        progress_bar = tqdm(total=self.max_epoch, desc="Training Progress")
+
+    def train_break(self, val_input):
+      if len(self.cost_historic) < 2:
+        return False
+      if val_input is None:
+        return  np.abs(self.cost_old - self.cost)/self.cost_old < 10E-20
+      else:
+        w = np.abs(self.cost_val_historic[-2] - self.cost_val_historic[-1])/self.cost_val_historic[-1] < 10E-20 or self.cost_val_historic[-1] > 1.1*np.min(self.cost_val_historic) 
+        return w
+
+    def train(self,input, observed,training_method = "GD", 
+              learning_rate = 0.001, gamma = 0, val_input=None, 
+              val_observed =None,batch_size = -1):
+        self.cost_old = 0
+        self.cost = 0
+        if batch_size == -1:
+            batch_size = input.shape[0]
+        
         for i in range(self.max_epoch): 
-            if cost_old != 0 and np.abs(cost_old - cost)/cost_old < 10E-20:
-                break
-            o1 = self.output(input)
-            cost_old = cost
-            cost = self.layers[-1].cost_eval(o1,observed)
-            delta_next = None
-            W_next = None
-            for lay in reversed(self.layers):
-                delta_next = lay.delta(delta_next, W_next)
-                W_next = lay.W
-            for lay in self.layers:
-                lay.layer_update(training_method, learning_rate, gamma)        
-            if val_input is None:
-                progress_bar.set_description(f"Cost: {cost:.4f}")
-            else:
-                o2 = self.output(val_input)
-                val_cost= self.layers[-1].cost_eval(o2,val_observed, validation = True)
-                progress_bar.set_description(f"Cost: {cost:.4f} Validation Cost: {val_cost:.4f} ")
-            progress_bar.update(1)
             
+            if self.train_break(val_input):
+                break
+            progress_bar = tqdm(total=input.shape[0]//batch_size + (input.shape[0]%batch_size > 0) ,
+                                bar_format='{desc}|{percentage:3.0f}%|{bar}|Batch: {n_fmt}/{total_fmt}')
+            orrange = list(range(input.shape[0]))
+            random.shuffle(orrange)
+            j = 0
+            self.min_cost = float("Inf")
+            while j < input.shape[0]:
+                max_range = min(j+batch_size, input.shape[0])
+                input_local = input[orrange[j:max_range],:]
+                o1 = self.output(input_local)
+                self.cost_old = self.cost
+                observed_local = observed[orrange[j:max_range]]
+                self.cost = self.layers[-1].cost_eval(o1,observed_local)
+                delta_next = None
+                W_next = None
+                for lay in reversed(self.layers):
+                    delta_next = lay.delta(delta_next, W_next)
+                    W_next = lay.W
+                for lay in self.layers:
+                    lay.layer_update(training_method, learning_rate, gamma)        
+                if val_input is None:
+                    progress_bar.set_description(f"Cost: {cost:.4f}")
+                else:
+                    o2 = self.output(val_input)
+                    self.val_cost= self.layers[-1].cost_eval(o2,val_observed, validation = True)
+                    #time.sleep(0.1)
+                    progress_bar.set_description(f"Epoch: {i} Cost: {self.cost:.4f} Validation Cost: {self.val_cost:.4f}")
+                if not val_input is None:
+                    self.cost_val_historic.append(self.val_cost)
+                if val_input is None:
+                    if self.cost < self.min_cost:
+                        self.min_cost = self.cost
+                        self.Final_Model = copy.deepcopy(self.layers)
+                else: 
+                    if self.val_cost < self.min_cost:
+                        self.min_cost = self.val_cost
+                        self.Final_Model = copy.deepcopy(self.layers)
+                progress_bar.update(1)
+                j += batch_size
+                o1 = self.output(input)
+                cost = self.layers[-1].cost_eval(o1,observed)
+                self.cost_historic.append(cost)
+
+        if not val_input is None:
+            plot_df = pd.DataFrame({"x": list(range(len(self.cost_historic)))*2 ,
+                                    "y":self.cost_historic+self.cost_val_historic,
+                                    "color": ["Training Cost"]*len(self.cost_historic) + 
+                                    ["Validation Cost"]*len(self.cost_historic)})
+            plot = px.line(plot_df, x="x",y = "y", color="color")
+        else:
+            plot = px.line(x=list(range(len(self.cost_historic))),y = self.cost_historic)
+        plot.show()
+        return self.Final_Model
         
  
 
@@ -199,17 +255,27 @@ def d_l_relu(x):
     
 leaky_relu = Act_Fun(l_relu, d_l_relu)
 
+# %% leaky relu
+
+def relu(x):
+    return np.where(x < 0,0, x)
+    
+
+def d_relu(x):
+    return np.where(x < 0, 0, 1)
+    
+relu_act = Act_Fun(relu, d_relu)
 
 
 
 ## some costs
 
 #%%
-sq_cost = Cost_Fun(lambda x,y: (x-y)**2, lambda x,y : 2*(x-y))
+sq_cost = Cost_Fun(lambda x,y: (x-y)**2/np.shape[0], lambda x,y : 2*(x-y))
 
 def cross_entr_cost(predicted,real):
     a = np.log(predicted)
-    return -1/real.shape[1]* np.sum(a*real)
+    return -1/real.shape[0]* np.sum(a*real)
 
 def cross_entr_der(predicted, real):
         return (predicted -real)

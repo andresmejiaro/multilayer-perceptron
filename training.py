@@ -3,6 +3,7 @@ import pandas as pd
 import layer as ly
 import numpy as np
 import argparse
+import joblib
 
 def load_and_preprocess_data(name):
     t_data = pd.read_csv(f"{name}_TD.csv",header=None)
@@ -23,16 +24,17 @@ def create_network(sizes, activation, cost, epochs = 100000):
         if i == 0:
             continue  
         if i == len(sizes) -1:
-            red.layer_append(ly.Layer(sizes[i-1],sizes[i],activation, cost))    
+            red.layer_append(ly.Layer(sizes[i-1],sizes[i],ly.softmax_act, cost))    
         else:
             red.layer_append(ly.Layer(sizes[i-1],sizes[i],activation))
     return red
 
 def select_activation(activation_text):
-    activations = {"LeakyRelu":ly.leaky_relu,"Linear":ly.id_act,"Sigmoid":ly.sigmoid_act}
+    activations = {"LeakyRelu":ly.leaky_relu,"Linear":ly.id_act,
+                   "Sigmoid":ly.sigmoid_act, "Relu":ly.relu_act}
     if activation_text in activations.keys():
         return activations[activation_text]
-    print(f"Activation not in {activations.keys()} returning sigmoid activation")
+    print(f"Activation {activation_text} not in {activations.keys()} returning sigmoid activation")
     return ly.sigmoid_act
 
 
@@ -43,6 +45,15 @@ def select_cost(cost_text):
     print(f"Cost not in {costs.keys()} aborting")
     exit(1)
 
+def select_training_method(training_method):
+    methods = ["RMSProp", "GD"]
+    if training_method in methods:
+        return training_method
+    print(f"Training Method not supported defaulting to Gradient Descent")
+    return "GD"
+
+
+
 def main():
     parser = argparse.ArgumentParser(description="This script trains the data preprocesed with the preprocessing macro")
     parser.add_argument("-la","--layer",type=int, nargs='+', help = "size of hidden layers", required=True)
@@ -52,6 +63,7 @@ def main():
     parser.add_argument("-lr","--learning_rate", type=float,nargs=1, help= "Learning Rate", default=0.001)
     parser.add_argument("-f","--file_name", type=str,nargs=1, help= "File Name prefix", required=True)
     parser.add_argument("-a","--activation", type=str,nargs=1, help= "Activation", default="Sigmoid")
+    parser.add_argument("-m","--method", type=str,nargs=1, help= "Training Method", default="GD")
 
     args = parser.parse_args()
 
@@ -59,11 +71,18 @@ def main():
 
     sizes = [t_data.shape[1]]+ args.layer
     activation = select_activation(args.activation)
-    loss = select_cost(args.loss)    
+    loss = select_cost(args.loss)
+    training_method = select_training_method(args.method[0])    
     red = create_network(sizes,activation,loss,args.epochs[0])
     
-    red.train(t_data,t_target,val_input=v_data,val_observed=v_target,learning_rate=args.learning_rate[0])
-    x=red.output(t_data)
+    j=red.train(t_data,t_target,val_input=v_data,val_observed=v_target,
+              learning_rate=args.learning_rate[0],
+              batch_size=args.batch_size[0], training_method=training_method)
+    weights = [{"W":w.W,"b": w.b} for w in j]
+    joblib.dump({"weights":weights,"loss":args.loss,"activation":args.activation},f"{args.file_name[0]}_model.joblib")
+
+    
+    
 
 
 if __name__ == "__main__":

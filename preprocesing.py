@@ -6,7 +6,7 @@ import pandas as pd
 import sys
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import joblib
-
+import os
 
 def normalize(x):
     mean = np.mean(x, axis=1)
@@ -19,6 +19,7 @@ def normalize(x):
 
 
 def main():
+	np.seterr(divide='ignore', invalid='ignore')
 	if (len(sys.argv)  != 2):
 		print("Wrong number or arguments")
 		exit(1)
@@ -29,6 +30,8 @@ def main():
 			print("Something wrong happened when opening the file")
 			print(e)
 			exit(1)
+	_, file_name = os.path.split(sys.argv[1])
+	name, _ = os.path.splitext(file_name)
 	y= df.iloc[:,[1]].copy()
 	enc = OneHotEncoder(drop="first",sparse_output=False)
 	std = StandardScaler()
@@ -42,13 +45,13 @@ def main():
 	
 	X_train = std.fit_transform(X_train)
 	X_cv = std.transform(X_cv)
-
+	
 	try:
-		pd.DataFrame(X_train).to_csv("Training_data.csv", index = False)
-		pd.DataFrame(X_cv).to_csv("Validation_data.csv", index = False)
-		pd.DataFrame(y_train).to_csv("Training_target.csv",index = False)
-		pd.DataFrame(y_cv).to_csv("Validation_target.csv", index = False)
-		joblib.dump(std,"standard_scaler.joblib")
+		pd.DataFrame(X_train).to_csv(f"./{name}_TD.csv", index = False)
+		pd.DataFrame(X_cv).to_csv(f"./{name}_VD.csv", index = False)
+		pd.DataFrame(y_train).to_csv(f"./{name}_TT.csv",index = False)
+		pd.DataFrame(y_cv).to_csv(f"./{name}_VT.csv", index = False)
+		joblib.dump([std,enc],f"./{name}_preprocess.joblib")
 	except BaseException as e:
 		print("Something went wrong saving the files")
 		exit(1)
