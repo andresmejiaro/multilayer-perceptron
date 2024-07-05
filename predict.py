@@ -35,8 +35,8 @@ def main():
     
     y= data.iloc[:,[1]].copy()
     y = preprocess[1].transform(y)
+    y = np.append(y, 1-y, axis= 1)
     data = preprocess[0].transform(data.iloc[:,2:])
-    results = netw.output(data)
     print(netw.cost_eval(data,y))
     
 

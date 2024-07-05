@@ -4,6 +4,7 @@ import layer as ly
 import numpy as np
 import argparse
 import joblib
+import random
 
 def load_and_preprocess_data(name):
     t_data = pd.read_csv(f"{name}_TD.csv",header=None)
@@ -57,29 +58,36 @@ def select_training_method(training_method):
 def main():
     parser = argparse.ArgumentParser(description="This script trains the data preprocesed with the preprocessing macro")
     parser.add_argument("-la","--layer",type=int, nargs='+', help = "size of hidden layers", required=True)
-    parser.add_argument("-e","--epochs", type=int,nargs=1, help= "Number of epochs", default=100000)
-    parser.add_argument("-lo","--loss", type=str,nargs=1, help= "Loss function name", default="CrossEntropy")
-    parser.add_argument("-b","--batch_size", type=int,nargs=1, help= "Batch Size", default= -1)
-    parser.add_argument("-lr","--learning_rate", type=float,nargs=1, help= "Learning Rate", default=0.001)
-    parser.add_argument("-f","--file_name", type=str,nargs=1, help= "File Name prefix", required=True)
-    parser.add_argument("-a","--activation", type=str,nargs=1, help= "Activation", default="Sigmoid")
-    parser.add_argument("-m","--method", type=str,nargs=1, help= "Training Method", default="GD")
+    parser.add_argument("-e","--epochs", type=int, help= "Number of epochs", default=100000)
+    parser.add_argument("-lo","--loss", type=str, help= "Loss function name", default="CrossEntropy")
+    parser.add_argument("-b","--batch_size", type=int, help= "Batch Size", default= -1)
+    parser.add_argument("-lr","--learning_rate", type=float, help= "Learning Rate", default=0.01)
+    parser.add_argument("-f","--file_name", type=str, help= "File Name prefix", required=True)
+    parser.add_argument("-a","--activation", type=str, help= "Activation", default="Sigmoid")
+    parser.add_argument("-m","--method", type=str, help= "Training Method", default="GD")
+    parser.add_argument("-s","--seed", type=bool, help= "Seed", default=False)
+
+    
 
     args = parser.parse_args()
 
-    t_data, t_target, v_data, v_target = load_and_preprocess_data(args.file_name[0])
+    if args.seed:
+        random.seed(42)
+        np.random.seed(42)
+    
+    t_data, t_target, v_data, v_target = load_and_preprocess_data(args.file_name)
 
     sizes = [t_data.shape[1]]+ args.layer
     activation = select_activation(args.activation)
     loss = select_cost(args.loss)
-    training_method = select_training_method(args.method[0])    
-    red = create_network(sizes,activation,loss,args.epochs[0])
+    training_method = select_training_method(args.method)    
+    red = create_network(sizes,activation,loss,args.epochs)
     
     j=red.train(t_data,t_target,val_input=v_data,val_observed=v_target,
-              learning_rate=args.learning_rate[0],
-              batch_size=args.batch_size[0], training_method=training_method)
+              learning_rate=args.learning_rate,
+              batch_size=args.batch_size, training_method=training_method)
     weights = [{"W":w.W,"b": w.b} for w in j]
-    joblib.dump({"weights":weights,"loss":args.loss,"activation":args.activation},f"{args.file_name[0]}_model.joblib")
+    joblib.dump({"weights":weights,"loss":args.loss,"activation":args.activation},f"{args.file_name}_model.joblib")
 
     
     

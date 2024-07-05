@@ -7,6 +7,8 @@ import random
 import plotly.express as px
 import pandas as pd
 import copy
+from sklearn.metrics import accuracy_score,f1_score
+
 
 class Act_Fun:
     def __init__(self,fun,df=None):
@@ -109,7 +111,12 @@ class Network:
         self.input_size =  input_size
         self.cost_historic = []
         self.cost_val_historic = []
+        self.accuracy_historic = []
+        self.accuracy_val_historic = []
+        self.f1_historic = []
+        self.f1_val_historic = []
         self.layers = []
+
         
 
     def layer_append(self, layer):
@@ -129,7 +136,8 @@ class Network:
    
     
     def cost_eval(self, input_data, observed_data, validation = False):
-        return self.layers[-1].cost_eval(self.output(input_data),observed_data, validation)
+        predicted =self.output(input_data)
+        return self.layers[-1].cost_eval(predicted,observed_data, validation)
     
 
     def train_break(self, val_input):
@@ -148,7 +156,9 @@ class Network:
         self.cost = 0
         if batch_size == -1:
             batch_size = input.shape[0]
-        
+        print(f"X train shape {input.shape}")
+        if not val_input is None:
+            print(f"X validation shape {val_input.shape}")
         for i in range(self.max_epoch): 
             
             if self.train_break(val_input):
@@ -179,9 +189,10 @@ class Network:
                     o2 = self.output(val_input)
                     self.val_cost= self.layers[-1].cost_eval(o2,val_observed, validation = True)
                     #time.sleep(0.1)
-                    progress_bar.set_description(f"Epoch: {i} Cost: {self.cost:.4f} Validation Cost: {self.val_cost:.4f}")
-                if not val_input is None:
-                    self.cost_val_historic.append(self.val_cost)
+                    val_ac_s = accuracy_score(np.argmax(o2,axis=1),np.argmax(val_observed,axis=1))
+                    val_f1_s = f1_score(np.argmax(o2,axis=1),np.argmax(val_observed,axis=1))
+                    progress_bar.set_description(f"Epoch: {i} Cost: {self.cost:.4f} Val Cost: {self.val_cost:.4f} Val Acc {val_ac_s:.4f} Val F1 {val_f1_s:.4f}")
+                
                 if val_input is None:
                     if self.cost < self.min_cost:
                         self.min_cost = self.cost
@@ -194,8 +205,15 @@ class Network:
                 j += batch_size
                 o1 = self.output(input)
                 cost = self.layers[-1].cost_eval(o1,observed)
-                self.cost_historic.append(cost)
-
+            if not val_input is None:
+                    self.cost_val_historic.append(self.val_cost)
+                    self.accuracy_historic.append(val_ac_s)
+                    self.f1_historic.append(val_f1_s)
+            self.cost_historic.append(cost)
+            ac_s = accuracy_score(np.argmax(o1,axis=1),np.argmax(observed,axis=1))
+            self.accuracy_historic.append(ac_s)
+            f1_s = f1_score(np.argmax(o1,axis=1),np.argmax(observed,axis=1))
+            self.f1_historic.append(f1_s)
         if not val_input is None:
             plot_df = pd.DataFrame({"x": list(range(len(self.cost_historic)))*2 ,
                                     "y":self.cost_historic+self.cost_val_historic,
