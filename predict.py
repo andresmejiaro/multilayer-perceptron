@@ -11,14 +11,14 @@ def main():
     parser = argparse.ArgumentParser(
         description="This script predicts from new data")
     parser.add_argument("-m", "--model_name", type=str,
-                        nargs=1, help="File Name prefix", required=True)
+                         help="File Name prefix", required=True)
     parser.add_argument("-f", "--file_name", type=str,
-                        nargs=1, help="data to predict", required=True)
+                        help="data to predict", required=True)
 
     args = parser.parse_args()
-    filen = args.model_name[0]
+    filen = args.model_name
 
-    data = pd.read_csv("data/data.csv")
+    data = pd.read_csv(args.file_name, header=None)
     preprocess = joblib.load(f"{filen}_preprocess.joblib")
     model = joblib.load(f"{filen}_model.joblib")
 
@@ -35,7 +35,6 @@ def main():
 
     y = data.iloc[:, [1]].copy()
     y = preprocess[1].transform(y)
-    y = np.append(y, 1-y, axis=1)
     data = preprocess[0].transform(data.iloc[:, 2:])
     print(netw.cost_eval(data, y))
 
@@ -45,3 +44,4 @@ if __name__ == "__main__":
 
 
 # %%
+    

@@ -9,13 +9,9 @@ import joblib
 import os
 
 
-def normalize(x):
-    mean = np.mean(x, axis=1)
-    sd = np.std(x, axis=1)
-    return (x - mean)/sd
-
-
 # %%
+
+
 
 
 def main():
@@ -25,26 +21,29 @@ def main():
         exit(1)
     else:
         try:
-            df = pd.read_csv(sys.argv[1])
+            df = pd.read_csv(sys.argv[1],header=None)
         except BaseException as e:
             print("Something wrong happened when opening the file")
             print(e)
             exit(1)
     _, file_name = os.path.split(sys.argv[1])
     name, _ = os.path.splitext(file_name)
-    y = df.iloc[:, [1]].copy()
-    enc = OneHotEncoder(drop="first", sparse_output=False)
+    y = df.iloc[:, [1]]
+    enc = OneHotEncoder(sparse_output=False,drop=None)
     std = StandardScaler()
 
-    y = enc.fit_transform(y)
-    df2 = df.drop(columns=df.columns[:2])
-    # df2 = normalize(df2)
+    df = df.iloc[:,2:]
 
+    y = enc.fit_transform(y)
+   
+    
     X_train, X_cv, y_train, y_cv = train_test_split(
-        df2, y, test_size=0.2, random_state=42)
+        df, y, test_size=0.2, random_state=42)
 
     X_train = std.fit_transform(X_train)
     X_cv = std.transform(X_cv)
+
+    
 
     try:
         pd.DataFrame(X_train).to_csv(f"./{name}_TD.csv", index=False)

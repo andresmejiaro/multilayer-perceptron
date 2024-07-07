@@ -87,14 +87,14 @@ class Layer:
         training_methods[training_method](learning_rate, gamma)
 
     def GD(self, learning_rate, gamma):
-        self.W -= learning_rate*self.w_grad()
-        self.b -= learning_rate*self.b_grad()
+        self.W -= +learning_rate*(self.w_grad() + 0.01*self.W)
+        self.b -= +learning_rate*(self.b_grad() + 0.01*self.b)
 
     def RMSProp(self, learning_rate, gamma=0.1):
         self.RMSProp_wt = gamma*self.RMSProp_wt + \
             (1-gamma)*(np.sum(self.w_grad()**2) + np.sum(self.b_grad()**2))
-        self.W -= learning_rate*self.w_grad()/np.sqrt(self.RMSProp_wt + 0.001)
-        self.b -= learning_rate*self.b_grad()/np.sqrt(self.RMSProp_wt + 0.001)
+        self.W -= learning_rate*(self.w_grad()/np.sqrt(self.RMSProp_wt + 0.001) + 0.01*self.W)
+        self.b -= learning_rate*(self.b_grad()/np.sqrt(self.RMSProp_wt + 0.001) + 0.01*self.b)
 
 
 class Network:
@@ -133,27 +133,13 @@ class Network:
         return self.layers[-1].cost_eval(predicted, observed_data, validation)
 
     def train_break(self, val_input):
-        if self.patience <= 0:
-            print("Early stoping")
-            return True
-        self.patience -= 1
         if len(self.cost_historic) < 2:
             return False
         if val_input is None:
             return np.abs(self.cost_old - self.cost)/self.cost_old < 10E-20
         else:
-            if self.cost_val_historic[-1] >= np.min(self.cost_val_historic):
-                if self.early_stopping_trigger == 0:
-                    self.early_stopping_trigger = 1
-                    self.patience = 3
-            else:
-                self.early_stopping_trigger = 0
-                self.patience = self.max_epoch
-            w = np.abs(self.cost_val_historic[-2] - self.cost_val_historic[-1]) / \
-                self.cost_val_historic[-1] < 10E-20 or self.cost_val_historic[-1] > np.min(
-                    self.cost_val_historic)
-        return w
-
+            return self.val_cost < 0.05  
+        
     def _train_startprint(self, input, val_input):
         print(f"X train shape {input.shape}")
         if not val_input is None:
@@ -199,6 +185,7 @@ class Network:
             self.Final_Model = copy.deepcopy(self.layers)
 
     def _train_metrics_update(self, input, observed, val_input, val_observed):
+        
         o1 = self.output(input)
         self.cost = self.layers[-1].cost_eval(o1, observed)
         labels_pred = np.argmax(o1, axis=1)

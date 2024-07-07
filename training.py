@@ -12,13 +12,11 @@ def load_and_preprocess_data(name, validation):
     t_target = pd.read_csv(f"{name}_TT.csv", header=None)
     t_data = np.array(t_data)
     t_target = np.array(t_target)
-    t_target = np.append(t_target, 1-t_target, axis=1)
     if validation:
         v_data = pd.read_csv(f"{name}_VD.csv", header=None)
         v_target = pd.read_csv(f"{name}_VT.csv", header=None)
         v_data = np.array(v_data)
         v_target = np.array(v_target)
-        v_target = np.append(v_target, 1-v_target, axis=1)
     else:
         v_data = v_target = None
     return t_data, t_target, v_data, v_target
