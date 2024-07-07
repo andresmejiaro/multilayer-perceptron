@@ -93,7 +93,7 @@ def main():
     t_data, t_target, v_data, v_target = load_and_preprocess_data(
         args.file_name, args.validation)
 
-    sizes = [t_data.shape[1]] + args.layer
+    sizes = [t_data.shape[1]] + args.layer + [t_target.shape[1]]
     activation = select_activation(args.activation)
     loss = select_cost(args.loss)
     training_method = select_training_method(args.method)

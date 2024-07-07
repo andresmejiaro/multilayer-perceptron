@@ -38,7 +38,7 @@ def main():
    
     
     X_train, X_cv, y_train, y_cv = train_test_split(
-        df, y, test_size=0.2, random_state=42)
+        df, y, test_size=0.2)
 
     X_train = std.fit_transform(X_train)
     X_cv = std.transform(X_cv)
