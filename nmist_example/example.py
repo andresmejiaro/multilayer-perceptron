@@ -27,9 +27,11 @@ mnist = fetch_openml('mnist_784', version=1)
 
 # Reshape the data
 x, y = mnist['data'], mnist['target']
+
 # %%
 X_train, X_cv, y_train, y_cv = train_test_split(
         x, y, test_size=0.2)
+
 # %%
 ohc = OneHotEncoder(drop= None,sparse_output=False)
 
@@ -40,7 +42,6 @@ y_cv2 = ohc.transform(np.array(y_cv).reshape(-1,1))
 X_train = np.array(X_train)
 X_cv = np.array( X_cv)
 
-
 # %%
 
 nor =StandardScaler()
@@ -50,14 +51,11 @@ X_cv = nor.transform(X_cv)
 
 #%%
 
-red = create_network([784,128,64,10],ly.sigmoid_act,ly.cross_entropy_cost)
+red = create_network([784,100, 10,10, 10],ly.sigmoid_act,ly.cross_entropy_cost)
 
 
 
 # %%
 
-red.train(X_train,y_train2,val_input=X_cv, val_observed=y_cv2,learning_rate=1,batch_size=100)
+red.train(X_train,y_train2,val_input=X_cv, val_observed=y_cv2,learning_rate=0.5,batch_size=32,training_method="MO",gamma=0.99)
 # %%
-weights = [{"W": w.W, "b": w.b} for w in j]
-joblib.dump({"weights": weights, "loss": args.loss,
-                "activation": args.activation}, f"{args.file_name}_model.joblib")

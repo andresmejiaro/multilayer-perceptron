@@ -7,6 +7,8 @@ import plotly.express as px
 import pandas as pd
 import copy
 from sklearn.metrics import accuracy_score, f1_score
+import joblib
+
 
 
 class Act_Fun:
@@ -42,10 +44,13 @@ class Layer:
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
 
-        self.W = np.random.normal(size=(n_outputs, n_inputs))
-        self.b = np.abs(np.random.normal(size=(n_outputs,)))
+        self.W = np.random.normal(size=(n_outputs, n_inputs),scale=10E-5)
+        self.b = np.abs(np.random.normal(size=(n_outputs,),scale=10E-5))
         self.act_fun = act_fun
-        self.RMSProp_wt = 0
+        self.RMSProp_wt_W = 0
+        self.RMSProp_wt_b = 0
+        self.old_W_grad = 0
+        self.old_b_grad = 0
 
     def output(self, input_data):
         if input_data.shape[1] != self.n_inputs:
@@ -80,22 +85,31 @@ class Layer:
         return np.mean(self.cost_fun.fun(output, observed_data))
 
     def layer_update(self, training_method, learning_rate, gamma=0):
-        training_methods = {"GD": self.GD, "RMSProp": self.RMSProp}
+        training_methods = {"GD": self.GD, "RMSProp": self.RMSProp,"MO":self.Momentum}
         if not training_method in training_methods.keys():
             print("Training method unknown defaulting to gradient descent")
             training_method = "GD"
         training_methods[training_method](learning_rate, gamma)
 
     def GD(self, learning_rate, gamma):
-        self.W -= +learning_rate*(self.w_grad() + 0.01*self.W)
-        self.b -= +learning_rate*(self.b_grad() + 0.01*self.b)
+        self.W -= +learning_rate*(self.w_grad() + 0.001*self.W)
+        self.b -= +learning_rate*(self.b_grad() + 0.001*self.b)
 
     def RMSProp(self, learning_rate, gamma=0.1):
-        self.RMSProp_wt = gamma*self.RMSProp_wt + \
-            (1-gamma)*(np.sum(self.w_grad()**2) + np.sum(self.b_grad()**2))
-        self.W -= learning_rate*(self.w_grad()/np.sqrt(self.RMSProp_wt + 0.001) + 0.01*self.W)
-        self.b -= learning_rate*(self.b_grad()/np.sqrt(self.RMSProp_wt + 0.001) + 0.01*self.b)
+        self.RMSProp_wt_W = gamma*self.RMSProp_wt_W + \
+            (1-gamma)*(np.sum(self.w_grad()**2))
+        self.RMSProp_wt_b = gamma*self.RMSProp_wt_b + \
+            (1-gamma)*(np.sum(self.b_grad()**2))
+        self.W -= learning_rate*(self.w_grad()/np.sqrt(self.RMSProp_wt_W + 0.001) + 0.00*self.W)
+        self.b -= learning_rate*(self.b_grad()/np.sqrt(self.RMSProp_wt_b + 0.001) + 0.00*self.b)
 
+    def Momentum(self,learning_rate, gamma):
+        W_grad = self.w_grad()
+        b_grad = self.b_grad()
+        self.W -= +learning_rate*((1-gamma)*W_grad +gamma*self.old_W_grad )
+        self.b -= +learning_rate*((1-gamma)*b_grad +gamma*self.old_b_grad)
+        self.old_W_grad = W_grad
+        self.old_b_grad = b_grad
 
 class Network:
     def __init__(self, input_size, max_epoch=10000) -> None:
@@ -225,6 +239,7 @@ class Network:
               learning_rate=0.001, gamma=0, val_input=None,
               val_observed=None, batch_size=-1):
         self._train_initialize_costs()
+        self._train_startprint(input,val_input)
         if batch_size == -1:
             batch_size = input.shape[0]
         for i in range(self.max_epoch):
@@ -250,6 +265,8 @@ class Network:
                 j += batch_size
             self._train_model_keep(val_input)
             self._train_save_epoch_historic(val_input)
+            if i % 10 == 0:
+                joblib.dump([[j.W,j.b] for j in self.layers],f"{i}.joblib")
         self._train_model_plots(val_input)
         return self.Final_Model
 
@@ -262,11 +279,14 @@ class Network:
 
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    x = x - np.max(x)
+    y = np.exp(x) 
+    return y / (1 + y)
 
 
 def sigmoid_der(x):
-    return np.exp(-x) / (1 + np.exp(-x))**2
+    z = sigmoid(x)
+    return z*(1-z)
 
 
 sigmoid_act = Act_Fun(sigmoid, sigmoid_der)
@@ -274,8 +294,9 @@ sigmoid_act = Act_Fun(sigmoid, sigmoid_der)
 
 # %% softmax act
 def softmax(x):
-    tr = np.exp(x)
-    tr = tr/tr.sum(axis=1, keepdims=True)
+    tr = x - np.max(x)
+    tr = np.exp(tr)
+    tr = tr/np.sum(tr)
     return tr
 
 
@@ -297,11 +318,11 @@ id_act = Act_Fun(id, one)
 
 
 def l_relu(x):
-    return np.where(x < 0, 0.01 * x, x)
+    return np.where(x < 0, 0.001 * x, x)
 
 
 def d_l_relu(x):
-    return np.where(x < 0, 0.01, 1)
+    return np.where(x < 0, 0.001, 1)
 
 
 leaky_relu = Act_Fun(l_relu, d_l_relu)
@@ -332,7 +353,7 @@ def cross_entr_cost(predicted, real):
 
 
 def cross_entr_der(predicted, real):
-    return (predicted - real)
+    return -(real - predicted)
 
 
 cross_entropy_cost = Cost_Fun(cross_entr_cost, cross_entr_der)
