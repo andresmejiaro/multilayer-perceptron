@@ -43,7 +43,7 @@ class Layer:
         self.cost_fun = cost_fun
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
-        self.reg_rate = 0.01
+        self.l2_reg = 0.01
 
         if act_fun.id == "Relu" or act_fun.id == "LeakyRelu":
             self.W = np.random.normal(loc = 0, scale=np.sqrt(2/n_inputs),size=(n_outputs, n_inputs))
@@ -56,7 +56,7 @@ class Layer:
         self.RMSProp_wt_b = 0
         self.old_W_grad = 0
         self.old_b_grad = 0
-        self.reg_rate = 0
+        self.l2_reg = 0
 
     def output(self, input_data, state_save = True):
         if input_data.shape[1] != self.n_inputs:
@@ -101,8 +101,8 @@ class Layer:
         training_methods[training_method](learning_rate, gamma)
 
     def GD(self, learning_rate, gamma):
-        self.W = self.W - learning_rate*(self.w_grad()) - self.reg_rate*self.W
-        self.b = self.b - learning_rate*(self.b_grad()) - self.reg_rate*self.b
+        self.W = self.W - learning_rate*(self.w_grad()) - self.l2_reg*self.W
+        self.b = self.b - learning_rate*(self.b_grad()) - self.l2_reg*self.b
  
 
     def RMSProp(self, learning_rate, gamma=0.1):
@@ -110,14 +110,14 @@ class Layer:
             (1-gamma)*(np.sum(self.w_grad()**2))
         self.RMSProp_wt_b = gamma*self.RMSProp_wt_b + \
             (1-gamma)*(np.sum(np.sum(self.b_grad()**2)))
-        self.W = self.W - learning_rate*(self.w_grad()/np.sqrt(self.RMSProp_wt_W + 10e-6)) - self.reg_rate*self.W
-        self.b = self.b - learning_rate*(self.b_grad()/np.sqrt(self.RMSProp_wt_b + 10e-6)) - self.reg_rate*self.b
+        self.W = self.W - learning_rate*(self.w_grad()/np.sqrt(self.RMSProp_wt_W + 10e-6)) - self.l2_reg*self.W
+        self.b = self.b - learning_rate*(self.b_grad()/np.sqrt(self.RMSProp_wt_b + 10e-6)) - self.l2_reg*self.b
 
     # def Momentum(self,learning_rate, gamma):
     #     W_grad = self.w_grad()
     #     b_grad = self.b_grad()
-    #     self.W = self.W - learning_rate*((1-gamma)*W_grad +gamma*self.old_W_grad)  + self.reg_rate *self.W
-    #     self.b = self.b  - learning_rate*((1-gamma)*b_grad +gamma*self.old_b_grad) + self.reg_rate * self.b
+    #     self.W = self.W - learning_rate*((1-gamma)*W_grad +gamma*self.old_W_grad)  + self.l2_reg *self.W
+    #     self.b = self.b  - learning_rate*((1-gamma)*b_grad +gamma*self.old_b_grad) + self.l2_reg * self.b
     #     self.old_W_grad = W_grad
     #     self.old_b_grad = b_grad
 
@@ -130,8 +130,8 @@ class Layer:
         b_update = (1 - gamma) * b_grad + gamma * self.old_b_grad
         
         # Apply updates with learning rate and regularization
-        self.W = self.W - learning_rate * (W_update + self.reg_rate * self.W)
-        self.b = self.b - learning_rate * (b_update + self.reg_rate * self.b)
+        self.W = self.W - learning_rate * (W_update + self.l2_reg * self.W)
+        self.b = self.b - learning_rate * (b_update + self.l2_reg * self.b)
         
         # Save current gradients as old gradients for next iteration
         self.old_W_grad = W_grad
@@ -150,8 +150,8 @@ class Network:
         self.f1_val_historic = []
         self.layers = []
         self.patience = self.max_epoch
-        self.early_stopping_trigger = 0
         self.Final_Model = None
+        self.l2_reg = 0
 
     def layer_append(self, layer):
         if not isinstance(layer, Layer):
@@ -174,13 +174,16 @@ class Network:
         predicted = self.output(input_data, state_save= not validation)
         return self.layers[-1].cost_eval(predicted, observed_data, validation)
 
-    def train_break(self, val_input):
+    def train_break(self, val_input, stop):
         if len(self.cost_historic) < 2:
             return False
         if val_input is None:
             return np.abs(self.cost_old - self.cost)/self.cost_old < 10E-20
         else:
-            ##return self.val_cost < 0.05  
+            if stop == "cost_val_hard":
+                return self.val_cost < 0.05  
+            if stop == "cost_val_relative":
+                return self.cost_val_historic[-1]/self.cost_val_historic[-2] - 1 < 0.0001  
             return self.val_ac_s > 0.95
         
     def _train_startprint(self, input, val_input):
@@ -194,7 +197,7 @@ class Network:
                 f"Epoch: {i} Cost: ({self.cost:.4f})  Acc: ({self.ac_s:.4f}) F1: ({self.f1_s:.4f})")
         else:
             progress_bar.set_description(
-                f"Epoch: {i}Cost:({self.cost:.4f},{self.val_cost:.4f}) Wc:{self.weight_cost:2f}Acc:({self.ac_s:.2f},{self.val_ac_s:.2f})F1:({self.f1_s:.2f},{self.val_f1_s:.2f})")
+                f"Epoch: {i} Cost:({self.cost:.4f},{self.val_cost:.4f}) Acc:({self.ac_s:.2f},{self.val_ac_s:.2f}) F1:({self.f1_s:.2f},{self.val_f1_s:.2f})")
         progress_bar.update(1)
 
     def _train_backprop(self, training_method, learning_rate, gamma):
@@ -230,7 +233,7 @@ class Network:
         cost = np.sum(a)/np.sum(b)
 
         # for lay in self.layers:
-        #     lay.reg_rate = 0*np.sqrt(cost)/(100+np.sqrt(cost))
+        #     lay.l2_reg = 0*np.sqrt(cost)/(100+np.sqrt(cost))
         return cost
                 
 
@@ -295,22 +298,28 @@ class Network:
         plot.show()
         plot2.show()
         plot3.show()
+    
+    def _train_initialize_reg(self, l2_reg):
+        for lay in self.layers:
+            lay.l2_reg = l2_reg
 
     def train(self, input, observed, training_method="GD",
               learning_rate=0.001, gamma=0, val_input=None,
-              val_observed=None, batch_size=-1):
+              val_observed=None, batch_size=-1,l2_reg = 0,
+              stop_method = "cost_val_reative"):
         self._train_initialize_costs()
+        self._train_initialize_reg(l2_reg)
         self._train_startprint(input,val_input)
         if batch_size == -1:
             batch_size = input.shape[0]
-        progress_bar = tqdm(total=input.shape[0]//batch_size + (input.shape[0] % batch_size > 0),
-                            bar_format='{desc}|{percentage:3.0f}%|{bar}|Batch: {n_fmt}/{total_fmt}')
         for i in range(self.max_epoch):
-            if self.train_break(val_input):
+            if self.train_break(val_input, stop_method):
                 break
             orrange = list(range(input.shape[0]))
             random.shuffle(orrange)
             j = 0
+            progress_bar = tqdm(total=input.shape[0]//batch_size + (input.shape[0] % batch_size > 0),
+                                bar_format='{desc}|{percentage:3.0f}%|{bar}|Batch: {n_fmt}/{total_fmt}')
             while j < input.shape[0]:
                 self.cost_old = self.cost
                 max_range = min(j+batch_size, input.shape[0])

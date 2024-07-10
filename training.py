@@ -8,31 +8,23 @@ import random
 
 
 def load_and_preprocess_data(name, validation):
-    t_data = pd.read_csv(f"{name}_TD.csv", header=None)
-    t_target = pd.read_csv(f"{name}_TT.csv", header=None)
-    t_data = np.array(t_data)
-    t_target = np.array(t_target)
-    if validation:
-        v_data = pd.read_csv(f"{name}_VD.csv", header=None)
-        v_target = pd.read_csv(f"{name}_VT.csv", header=None)
-        v_data = np.array(v_data)
-        v_target = np.array(v_target)
-    else:
-        v_data = v_target = None
-    return t_data, t_target, v_data, v_target
-
-
-def create_network(sizes, activation, cost, epochs=100000):
-    red = ly.Network(input_size=sizes[0], max_epoch=epochs)
-    for i in range(len(sizes)):
-        if i == 0:
-            continue
-        if i == len(sizes) - 1:
-            red.layer_append(
-                ly.Layer(sizes[i-1], sizes[i], ly.softmax_act, cost))
+    try:
+        t_data = pd.read_csv(f"{name}_TD.csv", header=None)
+        t_target = pd.read_csv(f"{name}_TT.csv", header=None)
+        t_data = np.array(t_data)
+        t_target = np.array(t_target)
+        if validation:
+            v_data = pd.read_csv(f"{name}_VD.csv", header=None)
+            v_target = pd.read_csv(f"{name}_VT.csv", header=None)
+            v_data = np.array(v_data)
+            v_target = np.array(v_target)
         else:
-            red.layer_append(ly.Layer(sizes[i-1], sizes[i], activation))
-    return red
+            v_data = v_target = None
+    except BaseException as e:
+        print("An error occured reading the data naje sure to run preprocessing first")
+        print(e)
+        exit(1)
+    return t_data, t_target, v_data, v_target
 
 
 def select_activation(activation_text):
@@ -84,12 +76,16 @@ def main():
                         help="Seed", default=False)
     parser.add_argument("-v", "--validation", action='store_false',
                         help="Include a Validation Set", default=True)
+    parser.add_argument("-l2", "--l2_reg", type=float, 
+                        help="Include regularization", default=0)
+    parser.add_argument("--stop","-st", type=str, help = "Stoping criterion", 
+                        default= "cost_val_hard")
 
     args = parser.parse_args()
 
-    # if args.seed:
-    #     random.seed(42)
-    #     np.random.seed(42)
+    if args.seed:
+        random.seed(42)
+        np.random.seed(42)
     t_data, t_target, v_data, v_target = load_and_preprocess_data(
         args.file_name, args.validation)
 
@@ -97,14 +93,22 @@ def main():
     activation = select_activation(args.activation)
     loss = select_cost(args.loss)
     training_method = select_training_method(args.method)
-    red = create_network(sizes, activation, loss, args.epochs)
+    if len(args.layer) < 2:
+        print("Use at least 2 hidden layers")
+        exit(1)
+    red = ly.Network.create_network(sizes, activation, loss, args.epochs)
 
     j = red.train(t_data, t_target, val_input=v_data, val_observed=v_target,
                   learning_rate=args.learning_rate,
-                  batch_size=args.batch_size, training_method=training_method,gamma=0.99)
+                  batch_size=args.batch_size, training_method=training_method,gamma=0.99,l2_reg=args.l2_reg,stop_method=args.stop)
     weights = [{"W": w.W, "b": w.b} for w in j]
-    joblib.dump({"weights": weights, "loss": args.loss,
+    try:
+        joblib.dump({"weights": weights, "loss": args.loss,
                 "activation": args.activation}, f"{args.file_name}_model.joblib")
+    except BaseException as e:
+        print("Something went wrong saving the model")
+        print(e)
+        exit(1)
 
 
 if __name__ == "__main__":
