@@ -54,7 +54,7 @@ def select_cost(cost_text):
 
 
 def select_training_method(training_method):
-    methods = ["RMSProp", "GD"]
+    methods = ["RMSProp", "GD", "MO"]
     if training_method in methods:
         return training_method
     print(f"Training Method not supported defaulting to Gradient Descent")
@@ -87,9 +87,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.seed:
-        random.seed(42)
-        np.random.seed(42)
+    # if args.seed:
+    #     random.seed(42)
+    #     np.random.seed(42)
     t_data, t_target, v_data, v_target = load_and_preprocess_data(
         args.file_name, args.validation)
 
@@ -101,7 +101,7 @@ def main():
 
     j = red.train(t_data, t_target, val_input=v_data, val_observed=v_target,
                   learning_rate=args.learning_rate,
-                  batch_size=args.batch_size, training_method=training_method)
+                  batch_size=args.batch_size, training_method=training_method,gamma=0.99)
     weights = [{"W": w.W, "b": w.b} for w in j]
     joblib.dump({"weights": weights, "loss": args.loss,
                 "activation": args.activation}, f"{args.file_name}_model.joblib")
