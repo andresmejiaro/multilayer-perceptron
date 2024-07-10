@@ -6,6 +6,7 @@ import matplotlib as plt
 import time
 import training as tr
 import plotly.express as px
+import layer as ly
 #%%
 
 model = joblib.load(f"mnist_model.joblib")
@@ -16,7 +17,7 @@ endsizes = [x["W"].shape[0] for x in model["weights"]]
 #%%
 
 sizes = [model["weights"][0]["W"].shape[1]] + endsizes
-netw = tr.create_network(sizes, activation, loss)
+netw = ly.Network.create_network(sizes, activation, loss)
 
 for a, b in zip(netw.layers, model["weights"]):
     a.W = b["W"]

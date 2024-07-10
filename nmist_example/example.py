@@ -51,19 +51,19 @@ X_cv = nor.transform(X_cv)
 
 #%%
 
-red = create_network([784,512, 256,128, 10],ly.leaky_relu,ly.cross_entropy_cost)
+red = create_network([784, 20, 20, 10],ly.leaky_relu,ly.cross_entropy_cost)
 
 
 
 # %%
 
-red.train(X_train,y_train2,val_input=X_cv, val_observed=y_cv2,learning_rate=0.01,batch_size=64,training_method="GD",gamma=0.99)
+red.train(X_train,y_train2,val_input=X_cv, val_observed=y_cv2,learning_rate=0.1,batch_size=64,training_method="GD",gamma=0.99)
 # %%
 weights = [{"W": w.W, "b": w.b} for w in red.layers]
 joblib.dump({"weights": weights, "loss": "CrossEntropy",
-                "activation": "LeakyRelu"}, f".nminst_example/mnist_model.joblib")
+                "activation": "LeakyRelu"}, f"mnist_model.joblib")
 # %%
 
-joblib.dump([nor,ohc],".nminst_example/Normalizer and encoder.joblib")
+joblib.dump([nor,ohc],"Normalizer and encoder.joblib")
 
 # %%
