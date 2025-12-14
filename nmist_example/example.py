@@ -4,7 +4,7 @@ from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import numpy as np
-import layer2 as ly
+import layer as ly
 import joblib
 #%%
 
@@ -27,9 +27,11 @@ mnist = fetch_openml('mnist_784', version=1)
 
 # Reshape the data
 x, y = mnist['data'], mnist['target']
+
 # %%
 X_train, X_cv, y_train, y_cv = train_test_split(
         x, y, test_size=0.2)
+
 # %%
 ohc = OneHotEncoder(drop= None,sparse_output=False)
 
@@ -40,7 +42,6 @@ y_cv2 = ohc.transform(np.array(y_cv).reshape(-1,1))
 X_train = np.array(X_train)
 X_cv = np.array( X_cv)
 
-
 # %%
 
 nor =StandardScaler()
@@ -50,14 +51,19 @@ X_cv = nor.transform(X_cv)
 
 #%%
 
-red = create_network([784,128,64,10],ly.sigmoid_act,ly.cross_entropy_cost)
+red = create_network([784, 20, 20, 10],ly.leaky_relu,ly.cross_entropy_cost)
 
 
 
 # %%
 
-red.train(X_train,y_train2,val_input=X_cv, val_observed=y_cv2,learning_rate=1,batch_size=100)
+red.train(X_train,y_train2,val_input=X_cv, val_observed=y_cv2,learning_rate=0.1,batch_size=64,training_method="GD",gamma=0.99)
 # %%
-weights = [{"W": w.W, "b": w.b} for w in j]
-joblib.dump({"weights": weights, "loss": args.loss,
-                "activation": args.activation}, f"{args.file_name}_model.joblib")
+weights = [{"W": w.W, "b": w.b} for w in red.layers]
+joblib.dump({"weights": weights, "loss": "CrossEntropy",
+                "activation": "LeakyRelu"}, f"mnist_model.joblib")
+# %%
+
+joblib.dump([nor,ohc],"Normalizer and encoder.joblib")
+
+# %%
